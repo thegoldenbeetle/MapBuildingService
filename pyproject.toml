@@ -1,0 +1,74 @@
+[build-system]
+requires = ["setuptools", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "map-builder-service"
+description = ""
+version = "0.0.1"
+readme = "README.md"
+keywords = []
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "Intended Audience :: Developers",
+    "Natural Language :: English",
+    "Programming Language :: Python :: 3",
+]
+dependencies = [
+  "dvc>=2.47.1",
+  "dvc-webdav",
+]
+
+[project.optional-dependencies]
+dev = [
+    "map-builder-service[lint]",
+    "map-builder-service[test]",
+]
+lint = [
+     "flake8",
+     "black",
+     "pylint",
+     "pylint-pytest",
+     "mypy",
+     "types-PyYAML",
+     "types-pkg_resources",
+     "types-requests",
+]
+test = [
+     "pytest",
+     "pytest-sugar",
+     "pytest-datadir-ng",
+     "pytest-repeat",
+     "pytest-benchmark",
+]
+
+[tool.pylint]
+    [tool.pylint.messages_control]
+    disable=["R0801", "C0114", "C0103", "R0903"]
+
+    [tool.pylint.format]
+    max-line-length=100
+
+    [tool.pylint.reports]
+    output-format=["colorized"]
+    generated-members=["cv2.*"]
+
+    [tool.pylint.master]
+    extension-pkg-whitelist=["cv2"]
+
+[tool.isort]
+profile = "black"
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = "--ignore=setup.py"
+testpaths = [
+  "tests",
+]
+
+[tool.mypy]
+ignore_missing_imports = true
+
+[tool.black]
+line-length = 100
+target-version = ['py310']

@@ -1,0 +1,4 @@
+[core]
+    remote = ydisk
+['remote "ydisk"']
+    url = webdavs://webdav.yandex.com/CV_DVC
