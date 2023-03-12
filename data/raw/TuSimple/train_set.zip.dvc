@@ -1,0 +1,4 @@
+outs:
+- md5: 29f941984e9940fdca854a01dc871583
+  size: 11677439288
+  path: train_set.zip

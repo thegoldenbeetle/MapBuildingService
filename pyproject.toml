@@ -2,6 +2,9 @@
 requires = ["setuptools", "setuptools-scm"]
 build-backend = "setuptools.build_meta"
 
+[tool.setuptools.packages.find]
+include = ["map_builder_service*"]
+
 [project]
 name = "map-builder-service"
 description = ""
@@ -16,7 +19,7 @@ classifiers = [
 ]
 dependencies = [
   "dvc>=2.47.1",
-  "dvc-webdav",
+  "dvc-s3",
 ]
 
 [project.optional-dependencies]

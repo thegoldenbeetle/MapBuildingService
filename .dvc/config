@@ -1,4 +1,5 @@
 [core]
-    remote = ydisk
-['remote "ydisk"']
-    url = webdavs://webdav.yandex.com/CV_DVC
+    remote = b2
+['remote "b2"']
+    url = s3://luda-dvc
+    endpointurl = https://s3.us-west-004.backblazeb2.com
