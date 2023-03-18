@@ -20,6 +20,9 @@ classifiers = [
 dependencies = [
   "dvc>=2.47.1",
   "dvc-s3",
+  "fire",
+  "tqdm",
+  "lightning",
 ]
 
 [project.optional-dependencies]

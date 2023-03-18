@@ -1,0 +1,6 @@
+union_dataset:
+  path: "data/proc/dataset"
+datasets:
+  tusimple:
+    path: "data/raw/TuSimple"
+    name: "TuSimple"

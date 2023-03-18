@@ -1,0 +1,9 @@
+stages:
+  preprocess-tusimple:
+    cmd: >-
+      python -m scripts.preprocess_dataset tusimple ${datasets.tusimple.path} ${union_dataset.path} --name ${datasets.tusimple.name}
+    deps:
+      - ${datasets.tusimple.path}
+    outs:
+      - ${union_dataset.path}/train/${datasets.tusimple.name}
+      - ${union_dataset.path}/test/${datasets.tusimple.name}
