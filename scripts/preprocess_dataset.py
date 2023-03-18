@@ -47,18 +47,22 @@ def preprocess_tusimple(
         else:
             zfile.extractall(test_out_path)
 
-    train_files = set(map(str, train_out_path.glob("**/*.jpg")))
-    train_labels = []
     test_labels = []
     with open(test_label_file, "r") as stream:
         if verbose:
-            print(f"Create gt...")
-        for line in tqdm(stream):
+            print(f"Create test gt...")
+        for line in stream:
             label = json.loads(line)
-            if label["raw_file"] in train_files:
+            test_labels.append(label)
+
+    train_labels = []
+    if verbose:
+        print(f"Create train gt...")
+    for train_label_file in train_out_path.glob("label_data_*.json"):
+        with open(train_label_file, "r") as stream:
+            for line in stream:
+                label = json.loads(line)
                 train_labels.append(label)
-            else:
-                test_labels.append(label)
 
     out_train_labels_file = out_dir / "train" / "TuSimple" / "labels.json"
     with out_train_labels_file.open("w") as stream:

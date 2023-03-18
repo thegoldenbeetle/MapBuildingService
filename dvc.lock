@@ -1,0 +1,19 @@
+schema: '2.0'
+stages:
+  preprocess-tusimple:
+    cmd: python -m scripts.preprocess_dataset tusimple data/raw/TuSimple data/proc/dataset
+      --name TuSimple
+    deps:
+    - path: data/raw/TuSimple
+      md5: d43199895c7d3bbd8166ef44f9c33f33.dir
+      size: 23153029944
+      nfiles: 9
+    outs:
+    - path: data/proc/dataset/test/TuSimple
+      md5: a6b0dbd48f1b8dc1b9fdc30a3b2481b1.dir
+      size: 12032509053
+      nfiles: 55643
+    - path: data/proc/dataset/train/TuSimple
+      md5: 2d0074a3650beeb3ce49496bd633bbd0.dir
+      size: 12182252962
+      nfiles: 72525
