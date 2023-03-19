@@ -22,13 +22,17 @@ dependencies = [
   "dvc-s3",
   "fire",
   "tqdm",
-  "lightning",
+  "lightning[extra]",
+  "torch",
+  "torchvision",
+  "torchmetrics",
+  "click",
+  "pillow",
+  "scikit-learn",
 ]
 
 [project.optional-dependencies]
 dev = [
-    "map-builder-service[lint]",
-    "map-builder-service[test]",
 ]
 lint = [
      "flake8",

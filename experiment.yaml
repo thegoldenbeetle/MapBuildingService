@@ -1,0 +1,39 @@
+# Model config (Pytorch Lightning)
+seed_everything: 564
+trainer:
+  callbacks:
+    - class_path: lightning.pytorch.callbacks.EarlyStopping
+      init_args:
+        monitor: "val/loss"
+        patience: 5
+        verbose: True
+        mode: "min"
+    - class_path: lightning.pytorch.callbacks.ModelCheckpoint
+      init_args:
+        monitor: "val/loss"
+        save_top_k: 3
+        mode: "min"
+        dirpath: "results/LaneNet"
+        filename: "lanenet-{epoch:03d}-{val/loss:.4f}"
+        verbose: True
+  logger:
+    class_path: lightning.pytorch.loggers.TensorBoardLogger
+    init_args:
+      save_dir: "logs"
+      name: "LaneNet"
+  max_epochs: 100
+  accelerator: "auto"
+  devices: 1
+  default_root_dir: "results/LaneNet"
+model:
+  pretrained: true
+  embeding_size: 8
+data:
+  data_dir: "data/proc/dataset"
+  train_size: 0.8
+  line_radius: 5.0
+  batch_size: 2
+  image_size:
+    - 288
+    - 512
+ckpt_path: null

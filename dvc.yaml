@@ -7,3 +7,16 @@ stages:
     outs:
       - ${union_dataset.path}/train/${datasets.tusimple.name}
       - ${union_dataset.path}/test/${datasets.tusimple.name}
+
+  fit:
+    cmd: >-
+      python -m scripts.experiment fit --data.data_dir "${union_dataset.path}" --config experiment.yaml
+    params:
+      - experiment.yaml:
+      - union_dataset.path
+    deps:
+      - ${union_dataset.path}
+    outs:
+      - "results/"
+      - "logs/":
+          cache: false
