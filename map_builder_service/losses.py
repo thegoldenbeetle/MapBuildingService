@@ -24,8 +24,9 @@ class LaneNetEmbedingLoss(nn.Module):
         return loss_var + loss_dist
 
     def _cluster_var_loss(self, points: torch.Tensor, cluster_mean: torch.Tensor):
-        loss = (cluster_mean - points).norm() - self.sigma_v
+        loss = (cluster_mean - points).norm(dim=1) - self.sigma_v
         loss = loss * (loss > 0)
+        loss = loss ** 2
         return loss.mean()
 
     def var_loss(self, points: Iterable[torch.Tensor], cluster_means: Iterable[torch.Tensor]):
@@ -42,5 +43,5 @@ class LaneNetEmbedingLoss(nn.Module):
             for j, mu_j in enumerate(cluster_means):
                 if j == i:
                     continue
-                loss = loss + max(0.0, self.sigma_d - (mu_i - mu_j).norm())
+                loss = loss + max(0.0, self.sigma_d - (mu_i - mu_j).norm())**2
         return loss / (C * (C - 1))

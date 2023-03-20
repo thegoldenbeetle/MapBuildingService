@@ -1,7 +1,7 @@
 schema: '2.0'
 stages:
   preprocess-tusimple:
-    cmd: python -m scripts.preprocess_dataset tusimple data/raw/TuSimple data/proc/dataset
+    cmd: python3 -m scripts.preprocess_dataset tusimple data/raw/TuSimple data/proc/dataset
       --name TuSimple
     deps:
     - path: data/raw/TuSimple
@@ -17,3 +17,62 @@ stages:
       md5: 2d0074a3650beeb3ce49496bd633bbd0.dir
       size: 12182252962
       nfiles: 72525
+  fit:
+    cmd: python3 -m scripts.experiment fit --data.data_dir "data/proc/dataset" --config
+      experiment.yaml
+    deps:
+    - path: data/proc/dataset
+      md5: d1c81fb90692c28914833c2e47f4e9d3.dir
+      size: 24214762025
+      nfiles: 128169
+    params:
+      params.yaml:
+        union_dataset.path: data/proc/dataset
+      experiment.yaml:
+        ckpt_path:
+        data:
+          data_dir: data/proc/dataset
+          train_size: 0.8
+          line_radius: 10.0
+          batch_size: 32
+          image_size:
+          - 144
+          - 256
+        model:
+          pretrained: true
+          embeding_size: 8
+        seed_everything: 564
+        trainer:
+          callbacks:
+          - class_path: lightning.pytorch.callbacks.EarlyStopping
+            init_args:
+              monitor: val/loss
+              patience: 5
+              verbose: true
+              mode: min
+          - class_path: lightning.pytorch.callbacks.ModelCheckpoint
+            init_args:
+              monitor: val/loss
+              save_top_k: 3
+              mode: min
+              dirpath: results/LaneNet
+              filename: lanenet-{epoch:03d}-{val/loss:.4f}
+              verbose: true
+          logger:
+            class_path: lightning.pytorch.loggers.TensorBoardLogger
+            init_args:
+              save_dir: logs
+              name: LaneNet
+          accelerator: auto
+          devices: 1
+          default_root_dir: results/LaneNet
+          max_epochs: 200
+    outs:
+    - path: logs/
+      md5: b93286dd1ba85650e6eade2f1b3ef47c.dir
+      size: 46432353
+      nfiles: 5
+    - path: results/
+      md5: cd368768a91bb5af5037be3a0e10b51b.dir
+      size: 744422709
+      nfiles: 3

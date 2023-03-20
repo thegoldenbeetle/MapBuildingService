@@ -5,7 +5,7 @@ trainer:
     - class_path: lightning.pytorch.callbacks.EarlyStopping
       init_args:
         monitor: "val/loss"
-        patience: 5
+        patience: 10
         verbose: True
         mode: "min"
     - class_path: lightning.pytorch.callbacks.ModelCheckpoint
@@ -21,18 +21,18 @@ trainer:
     init_args:
       save_dir: "logs"
       name: "LaneNet"
-  max_epochs: 100
   accelerator: "auto"
   devices: 1
   default_root_dir: "results/LaneNet"
+  max_epochs: 200
 model:
   pretrained: true
   embeding_size: 8
 data:
   data_dir: "data/proc/dataset"
   train_size: 0.8
-  line_radius: 5.0
-  batch_size: 2
+  line_radius: 10.0
+  batch_size: 8
   image_size:
     - 288
     - 512

@@ -14,13 +14,13 @@ from .losses import LaneNetEmbedingLoss
 
 def lanelet_clustering(emb, bin_seg, threshold: float = 1.5, min_points: int = 15):
     seg = np.zeros(bin_seg.shape, dtype=int)
-    if not (bin_seg > 0).sum():
+    if not (bin_seg > 0.5).sum():
         return seg
-    embeddings = emb[:, bin_seg > 0].transpose(0, 1)
+    embeddings = emb[:, bin_seg > 0.5].transpose(0, 1)
     mean_shift = MeanShift(bandwidth=threshold, bin_seeding=True, n_jobs=-1)
     mean_shift.fit(embeddings)
     labels = mean_shift.labels_
-    seg[bin_seg > 0] = labels + 1
+    seg[bin_seg > 0/5] = labels + 1
     for label in np.unique(seg):
         label_seg = seg[seg == label]
         if len(seg[seg == label]) < min_points:
@@ -31,6 +31,7 @@ def lanelet_clustering(emb, bin_seg, threshold: float = 1.5, min_points: int = 1
 class LaneNet(L.LightningModule):
     def __init__(self, pretrained: bool = True, embeding_size: int = 8):
         super().__init__()
+        self.save_hyperparameters()
         self.backbone = self._init_backbone(pretrained=pretrained)
 
         self.layer1 = nn.Sequential(
@@ -59,7 +60,6 @@ class LaneNet(L.LightningModule):
             nn.BatchNorm2d(8),
             nn.ReLU(),
             nn.Conv2d(8, 1, 1),
-            nn.Sigmoid(),
         )
 
         self.train_acc = torchmetrics.Accuracy(task="binary")
@@ -98,10 +98,12 @@ class LaneNet(L.LightningModule):
 
         x, gt_seg = batch
         bin_gt_seg = (gt_seg > 0).float()
-        pred_emb, pred_bin_seg = self(x)
+        pred_emb, pred_bin_seg_logit = self(x)
+        pred_bin_seg = nn.Sigmoid()(pred_bin_seg_logit)
 
         loss_emb = LaneNetEmbedingLoss()(pred_emb, gt_seg)
-        loss_seg = nn.BCELoss()(pred_bin_seg, bin_gt_seg)
+        pos_weight = torch.full(bin_gt_seg.shape[1:], 0.9527 / 0.0473).to(x.device)
+        loss_seg = nn.BCEWithLogitsLoss(pos_weight=pos_weight)(pred_bin_seg_logit, bin_gt_seg)
         loss = loss_emb + loss_seg
 
         self.log("train/loss", loss)
@@ -125,10 +127,21 @@ class LaneNet(L.LightningModule):
     def validation_step(self, batch, batch_idx):
         x, gt_seg, images = batch
         bin_gt_seg = (gt_seg > 0).float()
-        pred_emb, pred_bin_seg = self(x)
+        pred_emb, pred_bin_seg_logit = self(x)
+        pred_bin_seg = nn.Sigmoid()(pred_bin_seg_logit)
+
+        # FIXME: Debug
+        if batch_idx == 0:
+            print("Precent line points:", (pred_bin_seg > 0.5).sum() / torch.ones(pred_bin_seg.shape).sum().to(x.device))
+        
+        # FIXME: Delete
+        #N = torch.ones(bin_gt_seg.shape).sum(dim=(1,2)).to(x.device)
+        #print((bin_gt_seg.sum(dim=(1,2)) / N).mean(), ((1 - bin_gt_seg).sum(dim=(1,2)) / N).mean())
+        #exit(1)
 
         loss_emb = LaneNetEmbedingLoss()(pred_emb, gt_seg)
-        loss_seg = nn.BCELoss()(pred_bin_seg, bin_gt_seg)
+        pos_weight = torch.full(bin_gt_seg.shape[1:], 0.9527 / 0.0473).to(x.device)
+        loss_seg = nn.BCEWithLogitsLoss(pos_weight=pos_weight)(pred_bin_seg_logit, bin_gt_seg)
         loss = loss_emb + loss_seg
 
         self.log("val/loss", loss)
@@ -147,18 +160,18 @@ class LaneNet(L.LightningModule):
         self.valid_f1(pred_bin_seg, bin_gt_seg)
         self.log("val/seg_f1", self.valid_f1, on_step=True, on_epoch=True)
 
-        if batch_idx * x.shape[0] in [0, 100, 500]:
-            img = (transforms.ToTensor()(Image.open(images[0][0])) * 255).to(torch.uint8)
+        if batch_idx == 0:
+            img = (transforms.ToTensor()(Image.open(images[0][0])) * 255).to(torch.uint8).cpu()
 
             # GT mask
             gt_image = img
             masks = []
-            for label in np.unique(gt_seg[0]):
+            for label in np.unique(gt_seg[0].cpu()):
                 if label == 0:
                     continue
                 mask = (
                     nn.functional.interpolate(
-                        (gt_seg[0] == label).unsqueeze(0).unsqueeze(0).float(),
+                        (gt_seg[0].cpu() == label).unsqueeze(0).unsqueeze(0).float(),
                         img.shape[1:],
                     )[0]
                     > 0
@@ -169,7 +182,7 @@ class LaneNet(L.LightningModule):
 
             # Pred mask
             pred_seg = torch.Tensor(
-                lanelet_clustering(pred_emb[0], pred_bin_seg[0], threshold=1.5, min_points=15)
+                lanelet_clustering(pred_emb[0].cpu(), pred_bin_seg[0].cpu() > 0.5, threshold=1.5, min_points=15)
             )
             pred_image = img
             masks = []
@@ -184,13 +197,20 @@ class LaneNet(L.LightningModule):
                     > 0
                 )
                 masks.append(mask)
-            mask = torch.cat(masks, dim=0)
-            pred_image = draw_segmentation_masks(pred_image, mask)
+            if masks:
+                mask = torch.cat(masks, dim=0)
+                pred_image = draw_segmentation_masks(pred_image, mask)
+                self.logger.experiment.add_image(
+                f"image_{batch_idx}/pred",
+                pred_image,
+                self.current_epoch,
+            )
+    
 
             # Pred bin mask
             mask = (
                 nn.functional.interpolate(
-                    pred_bin_seg[0].unsqueeze(0).unsqueeze(0).float(),
+                    (pred_bin_seg[0] > 0.5).cpu().unsqueeze(0).unsqueeze(0).float(),
                     img.shape[1:],
                 )[0, 0]
                 > 0
@@ -198,16 +218,12 @@ class LaneNet(L.LightningModule):
             bin_pred_image = draw_segmentation_masks(img, mask)
 
             self.logger.experiment.add_embedding(
-                pred_emb[0][:, pred_bin_seg[0] > 0].transpose(0, 1), global_step=self.current_epoch
+                pred_emb[0][:, pred_bin_seg[0] > 0.5].transpose(0, 1), global_step=self.current_epoch,
+                tag="cluster_embedding",
             )
             self.logger.experiment.add_image(
                 f"image_{batch_idx}/gt",
                 gt_image,
-                self.current_epoch,
-            )
-            self.logger.experiment.add_image(
-                f"image_{batch_idx}/pred",
-                pred_image,
                 self.current_epoch,
             )
             self.logger.experiment.add_image(
