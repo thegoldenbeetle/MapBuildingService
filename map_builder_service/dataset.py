@@ -1,14 +1,18 @@
 import itertools
 import json
+import os
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Optional, Tuple, Union
 
 import lightning as L
 import numpy as np
-from PIL import Image, ImageDraw
+import torch
+from PIL import Image
 from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms
+
+from .utils import lines_to_mask
 
 
 class LaneDataset(Dataset):
@@ -19,15 +23,18 @@ class LaneDataset(Dataset):
         line_transform=None,
         line_radius: float = 5.0,
         sub_datasets: Optional[Sequence[str]] = None,
-        return_image_file: bool = False,
+        is_test: bool = False,
+        num_workers: Optional[int] = None,
     ):
         super().__init__()
         self.data_dir = Path(data_dir)
-        self.return_image_file = return_image_file
+        self.is_test = is_test
         self.line_radius = line_radius
         self.transform = transform
         self.line_transform = line_transform
-
+        self.num_workers = num_workers
+        if num_workers is None:
+            self.num_workers = os.cpu_count()
         self.sub_datasets = set(
             filter(
                 lambda x: x.is_dir(),
@@ -36,7 +43,6 @@ class LaneDataset(Dataset):
         )
         if sub_datasets is not None:
             self.sub_datasets = self.sub_datasets & set(sub_datasets)
-
         self.dataset_info = list(
             itertools.chain.from_iterable(
                 map(
@@ -57,37 +63,44 @@ class LaneDataset(Dataset):
     def __len__(self):
         return len(self.dataset_info)
 
-    def _item_to_mask(self, item: dict, size: Tuple[int, int]) -> np.ndarray:
-        mask_img = Image.new("I", size, color=0)
+    def _item_to_lines(self, item: dict) -> Sequence[np.ndarray]:
+        lines = []
         for i, line_xs in enumerate(item["lanes"]):
             line = np.array(
                 [point for point in zip(line_xs, item["h_samples"]) if point[0] > 0],
                 dtype=int,
             )
-            self._draw_line(mask_img, line, cls=i + 1)
-        return np.array(mask_img)
-
-    def _draw_line(self, mask_img: Image.Image, line: np.ndarray, cls: int):
-        draw = ImageDraw.Draw(mask_img)
-        draw.line(
-            list(map(tuple, line.tolist())),
-            fill=cls,
-            width=int(self.line_radius * 2),
-        )
+            lines.append(line)
+        return lines
 
     def __getitem__(self, idx):
         item = self.dataset_info[idx]
         image_file = item["raw_file"]
         image = Image.open(image_file)
-        gt_mask = self._item_to_mask(item, image.size)
+        gt_lines = self._item_to_lines(item)
+        gt_mask = lines_to_mask(gt_lines, image.size, int(self.line_radius * 2))
         if self.transform is not None:
             image = self.transform(image)
         if self.line_transform is not None:
             gt_mask = self.line_transform(gt_mask)
         gt_mask = gt_mask[0]
-        if self.return_image_file:
-            return image, gt_mask, [str(image_file)]
+        if self.is_test:
+            return image, gt_mask, str(image_file), gt_lines
         return image, gt_mask
+
+    @staticmethod
+    def collate_fn(data):
+        is_test = len(data[0]) != 2
+        if is_test:
+            image, gt_mask, image_file, gt_lines = zip(*data)
+        else:
+            image, gt_mask = zip(*data)
+        image = torch.stack(image)
+        gt_mask = torch.stack(gt_mask)
+        if is_test:
+            return image, gt_mask, image_file, gt_lines
+        else:
+            return image, gt_mask
 
 
 class LaneDataModule(L.LightningDataModule):
@@ -144,7 +157,9 @@ class LaneDataModule(L.LightningDataModule):
         return transforms.Compose(
             [
                 transforms.ToTensor(),
-                transforms.Resize(self.image_size, interpolation=Image.NEAREST, antialias=True),
+                transforms.Resize(
+                    self.image_size, interpolation=Image.NEAREST, antialias=True
+                ),
             ]
         )
 
@@ -161,7 +176,9 @@ class LaneDataModule(L.LightningDataModule):
         return transforms.Compose(
             [
                 transforms.ToTensor(),
-                transforms.Resize(self.image_size, interpolation=Image.NEAREST, antialias=True),
+                transforms.Resize(
+                    self.image_size, interpolation=Image.NEAREST, antialias=True
+                ),
             ]
         )
 
@@ -180,7 +197,7 @@ class LaneDataModule(L.LightningDataModule):
             line_transform=self.test_line_transform,
             line_radius=self.line_radius,
             sub_datasets=self.sub_datasets,
-            return_image_file=True,
+            is_test=True,
         )
         self.test_data = LaneDataset(
             self.data_dir / "test",
@@ -188,13 +205,30 @@ class LaneDataModule(L.LightningDataModule):
             line_transform=self.test_line_transform,
             line_radius=self.line_radius,
             sub_datasets=self.sub_datasets,
+            is_test=True,
         )
 
     def train_dataloader(self):
-        return DataLoader(self.train_data, batch_size=self.batch_size, shuffle=True, num_workers=16)
+        return DataLoader(
+            self.train_data,
+            batch_size=self.batch_size,
+            shuffle=True,
+            num_workers=self.num_workers,
+            collate_fn=LaneDataset.collate_fn,
+        )
 
     def val_dataloader(self):
-        return DataLoader(self.val_data, batch_size=self.batch_size, num_workers=16)
+        return DataLoader(
+            self.val_data,
+            batch_size=self.batch_size,
+            num_workers=self.num_workers,
+            collate_fn=LaneDataset.collate_fn,
+        )
 
     def test_dataloader(self):
-        return DataLoader(self.test_data, batch_size=self.batch_size, num_workers=16)
+        return DataLoader(
+            self.test_data,
+            batch_size=self.batch_size,
+            num_workers=self.num_workers,
+            collate_fn=LaneDataset.collate_fn,
+        )

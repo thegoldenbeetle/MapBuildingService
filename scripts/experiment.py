@@ -1,13 +1,14 @@
-import lightning as L
+import sys
+
 from lightning.pytorch.cli import LightningCLI
 
-from lightning.pytorch.callbacks.early_stopping import EarlyStopping
-from map_builder_service.lanenet import LaneNet
 from map_builder_service.dataset import LaneDataModule
+from map_builder_service.lanenet import LaneNet
 
 
 def cli_main():
-    cli = LightningCLI(LaneNet, LaneDataModule)
+    LightningCLI(LaneNet, LaneDataModule)
+
 
 if __name__ == "__main__":
-    exit(cli_main())
+    sys.exit(cli_main())

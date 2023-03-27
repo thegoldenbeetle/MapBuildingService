@@ -1,15 +1,21 @@
 #!/usr/bin/env python3
 import json
-from tqdm.auto import tqdm
+import logging
 from pathlib import Path
 from typing import Union
 from zipfile import ZipFile
 
 import fire
+from tqdm.auto import tqdm
+
+logger = logging.getLogger(__name__)
 
 
 def preprocess_tusimple(
-    path: Union[str, Path], out_dir: Union[str, Path], name: str = "TuSimple", verbose: bool = True
+    path: Union[str, Path],
+    out_dir: Union[str, Path],
+    name: str = "TuSimple",
+    verbose: bool = True,
 ):
     path = Path(path)
     out_dir = Path(out_dir)
@@ -19,12 +25,14 @@ def preprocess_tusimple(
 
     with ZipFile(train_set) as zfile:
         if verbose:
-            print(f"Unzip train {train_set}...")
+            logger.info(f"Unzip train {train_set}...")
         train_out_path = out_dir / "train" / "TuSimple"
         train_out_path.mkdir(parents=True, exist_ok=True)
         if verbose:
             uncompress_size = sum((f.file_size for f in zfile.infolist()))
-            pbar = tqdm(total=uncompress_size, unit = 'B', unit_scale = True, dynamic_ncols=True)
+            pbar = tqdm(
+                total=uncompress_size, unit="B", unit_scale=True, dynamic_ncols=True
+            )
             for f in zfile.infolist():
                 zfile.extract(member=f, path=train_out_path)
                 pbar.update(f.file_size)
@@ -34,12 +42,14 @@ def preprocess_tusimple(
 
     with ZipFile(test_set) as zfile:
         if verbose:
-            print(f"Unzip test {test_set}...")
+            logger.info(f"Unzip test {test_set}...")
         test_out_path = out_dir / "test" / "TuSimple"
         test_out_path.mkdir(parents=True, exist_ok=True)
         if verbose:
             uncompress_size = sum((f.file_size for f in zfile.infolist()))
-            pbar = tqdm(total=uncompress_size, unit = 'B', unit_scale = True, dynamic_ncols=True)
+            pbar = tqdm(
+                total=uncompress_size, unit="B", unit_scale=True, dynamic_ncols=True
+            )
             for f in zfile.infolist():
                 zfile.extract(member=f, path=test_out_path)
                 pbar.update(f.file_size)
@@ -50,14 +60,14 @@ def preprocess_tusimple(
     test_labels = []
     with open(test_label_file, "r") as stream:
         if verbose:
-            print(f"Create test gt...")
+            logger.info("Create test gt...")
         for line in stream:
             label = json.loads(line)
             test_labels.append(label)
 
     train_labels = []
     if verbose:
-        print(f"Create train gt...")
+        logger.info("Create train gt...")
     for train_label_file in train_out_path.glob("label_data_*.json"):
         with open(train_label_file, "r") as stream:
             for line in stream:

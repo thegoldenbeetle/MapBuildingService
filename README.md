@@ -77,3 +77,22 @@
 ## Разметка данных
 
 [ТЗ для разметки дорожных линий](doc/labeling.pdf)
+
+## Результаты
+
+### LaneNet
+
+**TuSimple:**
+
+| Test metric                    | Value |
+|:-------------------------------:|:-----:|
+| TP (CuLane metric)              | 7173  |
+| FP (CuLane metric)              | 3195  |
+| FN (CuLane metric)              | 2771  |
+| Precision (CuLane metric)       | 0.692 |
+| Recall (CuLane metric)          | 0.721 |
+| F1 (CuLane metric)              | 0.706 |
+| Accuracy (Binary segmentation) | 0.944|
+| Precision (Binary segmentation) | 0.620|
+| Recall (Binary segmentation)    | 0.454|
+| F1 (Binary segmentation)        | 0.979|

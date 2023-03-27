@@ -11,16 +11,21 @@ trainer:
     - class_path: lightning.pytorch.callbacks.ModelCheckpoint
       init_args:
         monitor: "val/loss"
+        save_last: True
         save_top_k: 3
         mode: "min"
         dirpath: "results/LaneNet"
         filename: "lanenet-{epoch:03d}-{val/loss:.4f}"
         verbose: True
   logger:
-    class_path: lightning.pytorch.loggers.TensorBoardLogger
-    init_args:
-      save_dir: "logs"
-      name: "LaneNet"
+    - class_path: lightning.pytorch.loggers.TensorBoardLogger
+      init_args:
+        save_dir: "logs"
+        name: "LaneNet"
+    - class_path: lightning.pytorch.loggers.CSVLogger
+      init_args:
+        save_dir: "logs"
+        name: "LaneNet"
   accelerator: "auto"
   devices: 1
   default_root_dir: "results/LaneNet"

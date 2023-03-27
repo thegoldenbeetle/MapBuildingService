@@ -12,7 +12,10 @@ class LaneNetEmbedingLoss(nn.Module):
         self.sigma_d = sigma_d
 
     def forward(self, emb: torch.Tensor, gt_seg: torch.Tensor):
-        loss = [self.loss(batch_emb, batch_gt_seg) for batch_emb, batch_gt_seg in zip(emb, gt_seg)]
+        loss = [
+            self.loss(batch_emb, batch_gt_seg)
+            for batch_emb, batch_gt_seg in zip(emb, gt_seg)
+        ]
         return sum(loss) / len(loss)
 
     def loss(self, emb: torch.Tensor, gt_seg: torch.Tensor):
@@ -26,10 +29,12 @@ class LaneNetEmbedingLoss(nn.Module):
     def _cluster_var_loss(self, points: torch.Tensor, cluster_mean: torch.Tensor):
         loss = (cluster_mean - points).norm(dim=1) - self.sigma_v
         loss = loss * (loss > 0)
-        loss = loss ** 2
+        loss = loss**2
         return loss.mean()
 
-    def var_loss(self, points: Iterable[torch.Tensor], cluster_means: Iterable[torch.Tensor]):
+    def var_loss(
+        self, points: Iterable[torch.Tensor], cluster_means: Iterable[torch.Tensor]
+    ):
         cluster_losses = [
             self._cluster_var_loss(cls_points, cls_mean)
             for cls_points, cls_mean in zip(points, cluster_means)
@@ -43,5 +48,5 @@ class LaneNetEmbedingLoss(nn.Module):
             for j, mu_j in enumerate(cluster_means):
                 if j == i:
                     continue
-                loss = loss + max(0.0, self.sigma_d - (mu_i - mu_j).norm())**2
+                loss = loss + max(0.0, self.sigma_d - (mu_i - mu_j).norm()) ** 2
         return loss / (C * (C - 1))
