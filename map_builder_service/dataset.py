@@ -9,7 +9,7 @@ import lightning as L
 import numpy as np
 import torch
 from PIL import Image
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader, Dataset, Subset
 from torchvision import transforms
 
 from .utils import lines_to_mask
@@ -24,7 +24,6 @@ class LaneDataset(Dataset):
         line_radius: float = 5.0,
         sub_datasets: Optional[Sequence[str]] = None,
         is_test: bool = False,
-        num_workers: Optional[int] = None,
     ):
         super().__init__()
         self.data_dir = Path(data_dir)
@@ -32,9 +31,6 @@ class LaneDataset(Dataset):
         self.line_radius = line_radius
         self.transform = transform
         self.line_transform = line_transform
-        self.num_workers = num_workers
-        if num_workers is None:
-            self.num_workers = os.cpu_count()
         self.sub_datasets = set(
             filter(
                 lambda x: x.is_dir(),
@@ -116,6 +112,7 @@ class LaneDataModule(L.LightningDataModule):
         line_radius: float = 30.0,
         batch_size: int = 64,
         image_size: Tuple[int, int] = (512, 288),
+        num_workers: Optional[int] = None,
     ):
         super().__init__()
         self.data_dir = Path(data_dir)
@@ -123,6 +120,9 @@ class LaneDataModule(L.LightningDataModule):
         self.train_size = train_size
         self.line_radius = line_radius
         self.image_size = image_size
+        self.num_workers = num_workers
+        if num_workers is None:
+            self.num_workers = os.cpu_count()
 
         self.train_transform = train_transform
         if train_transform is None:
@@ -210,7 +210,7 @@ class LaneDataModule(L.LightningDataModule):
 
     def train_dataloader(self):
         return DataLoader(
-            self.train_data,
+            Subset(self.train_data, list(range(16))),
             batch_size=self.batch_size,
             shuffle=True,
             num_workers=self.num_workers,
@@ -219,7 +219,7 @@ class LaneDataModule(L.LightningDataModule):
 
     def val_dataloader(self):
         return DataLoader(
-            self.val_data,
+            Subset(self.val_data, list(range(16))),
             batch_size=self.batch_size,
             num_workers=self.num_workers,
             collate_fn=LaneDataset.collate_fn,
@@ -227,7 +227,7 @@ class LaneDataModule(L.LightningDataModule):
 
     def test_dataloader(self):
         return DataLoader(
-            self.test_data,
+            Subset(self.test_data, list(range(16))),
             batch_size=self.batch_size,
             num_workers=self.num_workers,
             collate_fn=LaneDataset.collate_fn,

@@ -2,6 +2,10 @@ stages:
   preprocess-tusimple:
     cmd: >-
       python3 -m scripts.preprocess_dataset tusimple ${datasets.tusimple.path} ${union_dataset.path} --name ${datasets.tusimple.name}
+    params:
+      - datasets.tusimple.path
+      - union_dataset.path
+      - datasets.tusimple.name
     deps:
       - ${datasets.tusimple.path}
     outs:
@@ -10,13 +14,17 @@ stages:
 
   fit:
     cmd: >-
-      python3 -m scripts.experiment fit --data.data_dir "${union_dataset.path}" --config experiment.yaml
+      python3 -m scripts.experiment fit --data.data_dir "${union_dataset.path}" --config configs/${model}.yaml
+      python3 -m scripts.experiment test --data.data_dir "${union_dataset.path}" --config configs/${model}.yaml --ckpt_path "results/checkpoints/best-checkpoint.ckpt"
     params:
-      - experiment.yaml:
+      - model
       - union_dataset.path
+      - experiment.yaml:
     deps:
       - ${union_dataset.path}
-    outs:
-      - "results/"
-      - "logs/":
+    metrics:
+      - results/dvclive/metrics.json:
           cache: false
+    outs:
+      - "results/checkpoints"
+      - "results/tb-logs"

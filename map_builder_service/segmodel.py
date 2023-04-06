@@ -7,46 +7,26 @@ from PIL import Image
 from torch import nn, optim
 from torchvision import transforms
 from torchvision.models import VGG16_BN_Weights, vgg16_bn
+from torchvision.models.segmentation import (
+    DeepLabV3_MobileNet_V3_Large_Weights,
+    deeplabv3_mobilenet_v3_large,
+)
 from torchvision.utils import draw_segmentation_masks
 
 from .losses import LaneNetEmbedingLoss
 from .metrics import CULaneMetric
-from .utils import interpolate_lines, lanelet_clustering
+from .utils import interpolate_lines, lanelet_clustering, lane_ransac_clustering
 
 
-class LaneNet(L.LightningModule):
-    def __init__(self, pretrained: bool = True, embeding_size: int = 8):
+class SegModel(L.LightningModule):
+    def __init__(
+        self,
+        pretrained: bool = True,
+    ):
         super().__init__()
         self.save_hyperparameters()
-        self.backbone = self._init_backbone(pretrained=pretrained)
 
-        self.layer1 = nn.Sequential(
-            nn.Conv2d(512, 1024, 3, padding=4, dilation=4, bias=False),
-            nn.BatchNorm2d(1024),
-            nn.ReLU(),
-            nn.Conv2d(1024, 128, 3, padding=1, bias=False),
-            nn.BatchNorm2d(128),
-            nn.ReLU(),
-            nn.Conv2d(128, 32, 3, padding=1, bias=False),
-            nn.BatchNorm2d(32),
-            nn.ReLU(),
-            nn.Conv2d(32, 16, 3, padding=1, bias=False),
-            nn.BatchNorm2d(16),
-            nn.ReLU(),
-            nn.Upsample(scale_factor=8, mode="bilinear", align_corners=True),
-        )
-        self.emb = nn.Sequential(
-            nn.Conv2d(16, 8, 1),
-            nn.BatchNorm2d(8),
-            nn.ReLU(),
-            nn.Conv2d(8, embeding_size, 1),
-        )
-        self.seg = nn.Sequential(
-            nn.Conv2d(16, 8, 1),
-            nn.BatchNorm2d(8),
-            nn.ReLU(),
-            nn.Conv2d(8, 1, 1),
-        )
+        self.model = self._get_model(pretrained=pretrained)
 
         self.train_acc = torchmetrics.Accuracy(task="binary")
         self.train_recall = torchmetrics.Recall(task="binary")
@@ -70,56 +50,38 @@ class LaneNet(L.LightningModule):
         self.loggers[1]._version = self.loggers[0].version  # noqa: SLF001
 
     @staticmethod
-    def _init_backbone(pretrained: bool = True):
-        weights = None
+    def _get_model(pretrained: bool = True):
+        model = deeplabv3_mobilenet_v3_large(
+            weights=DeepLabV3_MobileNet_V3_Large_Weights.COCO_WITH_VOC_LABELS_V1
+            if pretrained
+            else None,
+        )
+        model.classifier[4] = nn.Conv2d(256, 1, kernel_size=(1, 1), stride=(1, 1))
         if pretrained:
-            weights = VGG16_BN_Weights.DEFAULT
-        backbone = vgg16_bn(weights=weights).features
-        backbone._modules.pop("33")  # noqa: SLF001
-        backbone._modules.pop("43")  # noqa: SLF001
-        return backbone
+            model.aux_classifier[4] = nn.Conv2d(
+                10, 1, kernel_size=(1, 1), stride=(1, 1)
+            )
+        return model
 
     def forward(self, x):
-        x = self.backbone(x)
-        x = self.layer1(x)
-        emb = self.emb(x)
-        seg = self.seg(x).squeeze(1)
-        return emb, seg
-
-    def lines_segmentation(self, x) -> np.ndarray:
-        emb, seg = self(x)
-        bin_seg = nn.Sigmoid()(seg) >= 0.5
-        return np.stack(
-            [
-                lanelet_clustering(
-                    e.cpu().detach().numpy(),
-                    s.cpu().detach().numpy(),
-                    threshold=1.5,
-                    min_points=15,
-                )
-                for e, s in zip(emb, bin_seg)
-            ]
-        )
+        return self.model(x)["out"]
 
     def training_step(self, batch, batch_idx):
         del batch_idx
 
         x, gt_seg = batch
         bin_gt_seg = (gt_seg > 0).float()
-        pred_emb, pred_bin_seg_logit = self(x)
+        pred_bin_seg_logit = self(x)[:, 0]
         pred_bin_seg = nn.Sigmoid()(pred_bin_seg_logit)
 
-        loss_emb = LaneNetEmbedingLoss()(pred_emb, gt_seg)
         pos_weight = torch.full(bin_gt_seg.shape[1:], 0.9527 / 0.0473).to(x.device)
         loss_seg = nn.BCEWithLogitsLoss(pos_weight=pos_weight)(
-            pred_bin_seg_logit,
-            bin_gt_seg,
+            pred_bin_seg_logit, bin_gt_seg
         )
-        loss = loss_emb + loss_seg
+        loss = loss_seg
 
         self.log("train/loss", loss)
         self.log("train/loss_seg", loss_seg)
-        self.log("train/loss_emb", loss_emb)
 
         self.train_acc(pred_bin_seg, bin_gt_seg)
         self.log("train/seg_accuracy", self.train_acc, on_step=True, on_epoch=False)
@@ -141,21 +103,19 @@ class LaneNet(L.LightningModule):
         return loss
 
     def validation_step(self, batch, batch_idx):
-        x, gt_seg, images, _ = batch
+        x, gt_seg, images, gt_lines = batch
         bin_gt_seg = (gt_seg > 0).float()
-        pred_emb, pred_bin_seg_logit = self(x)
+        pred_bin_seg_logit = self(x)[:, 0]
         pred_bin_seg = nn.Sigmoid()(pred_bin_seg_logit)
 
-        loss_emb = LaneNetEmbedingLoss()(pred_emb, gt_seg)
         pos_weight = torch.full(bin_gt_seg.shape[1:], 0.9527 / 0.0473).to(x.device)
         loss_seg = nn.BCEWithLogitsLoss(pos_weight=pos_weight)(
             pred_bin_seg_logit, bin_gt_seg
         )
-        loss = loss_emb + loss_seg
+        loss = loss_seg
 
         self.log("val/loss", loss)
         self.log("val/loss_seg", loss_seg)
-        self.log("val/loss_emb", loss_emb)
 
         self.valid_acc(pred_bin_seg, bin_gt_seg)
         self.log("val/seg_accuracy", self.valid_acc, on_step=True, on_epoch=True)
@@ -171,7 +131,7 @@ class LaneNet(L.LightningModule):
 
         if batch_idx == 0:
             img = (
-                (transforms.ToTensor()(Image.open(images[0][0])) * 255)
+                (transforms.ToTensor()(Image.open(images[0])) * 255)
                 .to(torch.uint8)
                 .cpu()
             )
@@ -195,11 +155,8 @@ class LaneNet(L.LightningModule):
 
             # Pred mask
             pred_seg = torch.Tensor(
-                lanelet_clustering(
-                    pred_emb[0].cpu(),
-                    pred_bin_seg[0].cpu() > 0.5,
-                    threshold=1.5,
-                    min_points=15,
+                lane_ransac_clustering(
+                    pred_bin_seg[0].cpu().numpy() > 0.5,
                 )
             )
             pred_image = img
@@ -234,11 +191,6 @@ class LaneNet(L.LightningModule):
             )
             bin_pred_image = draw_segmentation_masks(img, mask)
 
-            self.logger.experiment.add_embedding(
-                pred_emb[0][:, pred_bin_seg[0] > 0.5].transpose(0, 1),
-                global_step=self.current_epoch,
-                tag="cluster_embedding",
-            )
             self.logger.experiment.add_image(
                 f"image_{batch_idx}/gt",
                 gt_image,
@@ -255,19 +207,17 @@ class LaneNet(L.LightningModule):
     def test_step(self, batch, batch_idx):
         x, gt_seg, images, gt_lines = batch
         bin_gt_seg = (gt_seg > 0).float()
-        pred_emb, pred_bin_seg_logit = self(x)
+        pred_bin_seg_logit = self(x)[:, 0]
         pred_bin_seg = nn.Sigmoid()(pred_bin_seg_logit)
 
-        loss_emb = LaneNetEmbedingLoss()(pred_emb, gt_seg)
         pos_weight = torch.full(bin_gt_seg.shape[1:], 0.9527 / 0.0473).to(x.device)
         loss_seg = nn.BCEWithLogitsLoss(pos_weight=pos_weight)(
             pred_bin_seg_logit, bin_gt_seg
         )
-        loss = loss_emb + loss_seg
+        loss = loss_seg
 
-        self.log("test/loss", loss)
+        self.log("test/loss", loss, prog_bar=True)
         self.log("test/loss_seg", loss_seg)
-        self.log("test/loss_emb", loss_emb)
 
         self.test_acc(pred_bin_seg, bin_gt_seg)
         self.log("test/seg_accuracy", self.test_acc)
@@ -282,14 +232,11 @@ class LaneNet(L.LightningModule):
         self.log("test/seg_f1", self.test_f1)
 
         # Line metrics
-        for emb, bin_seg, lines, image_file in zip(
-            pred_emb, pred_bin_seg, gt_lines, images
+        for bin_seg, lines, image_file in zip(
+            pred_bin_seg, gt_lines, images
         ):
-            pred_seg = lanelet_clustering(
-                emb.cpu(),
-                bin_seg.cpu() >= 0.5,
-                threshold=1.5,
-                min_points=15,
+            pred_seg = lane_ransac_clustering(
+                bin_seg.cpu().numpy() >= 0.5,
             )
             size = Image.open(image_file).size
             upscale_pred_seg = cv2.resize(

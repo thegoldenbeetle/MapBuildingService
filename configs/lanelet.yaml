@@ -14,25 +14,23 @@ trainer:
         save_last: True
         save_top_k: 3
         mode: "min"
-        dirpath: "results/LaneNet"
-        filename: "lanenet-{epoch:03d}-{val/loss:.4f}"
         verbose: True
   logger:
     - class_path: lightning.pytorch.loggers.TensorBoardLogger
       init_args:
-        save_dir: "logs"
-        name: "LaneNet"
+        save_dir: "logs/"
+        name: "SegModel"
     - class_path: lightning.pytorch.loggers.CSVLogger
       init_args:
-        save_dir: "logs"
-        name: "LaneNet"
+        save_dir: "logs/"
+        name: "SegModel"
   accelerator: "auto"
   devices: 1
-  default_root_dir: "results/LaneNet"
-  max_epochs: 200
+  max_epochs: 100
 model:
-  pretrained: true
-  embeding_size: 8
+  class_path: map_builder_service.lanenet.LaneNet
+  init_args:
+    pretrained: true
 data:
   data_dir: "data/proc/dataset"
   train_size: 0.8

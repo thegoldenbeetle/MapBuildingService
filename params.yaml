@@ -1,5 +1,6 @@
 union_dataset:
   path: "data/proc/dataset"
+model: "segmodel"
 datasets:
   tusimple:
     path: "data/raw/TuSimple"
