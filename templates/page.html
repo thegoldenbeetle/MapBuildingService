@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+
+{% block title %}FastAPI Starter{% endblock %}
+{% block head %}
+{{ super() }}
+
+{% endblock %}
+
+{% block page_content %}
+
+<h1 class="cap">Map Builder Sevice</h1>
+
+<h3>Распознать изображение</h3>
+<!-- <form id="detect-form" action="/api/detect" method="post" enctype="multipart/form-data"> -->
+<form id="detect-form" action="" method="POST" enctype="multipart/form-data">
+    <p><input type="file" name="img_file" required /></p>
+    <p><input id="submit-button" type="submit"></p>
+</form>
+
+
+<div id="result">
+    <h3>Результат:</h3>
+
+    <h4>Линии:</h4>
+    <img id="line-img" src="">
+
+    <h4>Маска:</h4>
+    <img id="mask-img" src="">
+
+</div>
+
+
+
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+
+
+{% endblock %}
