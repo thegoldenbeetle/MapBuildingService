@@ -1,10 +1,8 @@
 import sys
-from dvclive.lightning import DVCLiveLogger
+
 from lightning.pytorch.cli import LightningCLI
 
 from map_builder_service.dataset import LaneDataModule
-from map_builder_service.lanenet import LaneNet
-from map_builder_service.segmodel import SegModel
 
 
 def cli_main():

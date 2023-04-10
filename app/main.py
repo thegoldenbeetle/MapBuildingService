@@ -8,7 +8,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from PIL import Image
 
-
+from .config import settings
 from .model import DetectionModel
 from .utils import draw_lines, get_mask_image, save_image
 
@@ -26,7 +26,7 @@ async def home(request: Request):
     return templates.TemplateResponse("page.html", {"request": request})
 
 
-@app.get("/image/{image_name}")
+@app.get("%s/{image_name}" % (settings.image_path,))
 async def get_image(image_name: str):
     return FileResponse(DATA_PATH / image_name)
 

@@ -1,6 +1,5 @@
 import hashlib
 import io
-from pathlib import Path
 from typing import Sequence
 
 import matplotlib.pyplot as plt
@@ -10,9 +9,7 @@ from PIL import Image
 from torchvision.transforms.functional import pil_to_tensor, to_pil_image
 from torchvision.utils import draw_segmentation_masks
 
-HOST = "http://127.0.0.1:8080"
-IMAGE_PATH = "/image"
-DATA_PATH = Path("/tmp/map_builder_service_data")
+from .config import settings
 
 
 def get_mask_image(image: Image.Image, mask: np.ndarray) -> Image.Image:
@@ -23,8 +20,6 @@ def get_mask_image(image: Image.Image, mask: np.ndarray) -> Image.Image:
             continue
         seg_masks.append(torch.tensor(mask == label, dtype=torch.bool))
     seg_mask = torch.stack(seg_masks)
-    print(draw_segmentation_masks(img_tensor, seg_mask).detach().cpu().numpy().shape)
-    print(img_tensor.shape)
     return to_pil_image(draw_segmentation_masks(img_tensor, seg_mask))
 
 
@@ -58,5 +53,5 @@ def draw_lines(image: Image.Image, lines: Sequence[np.ndarray]) -> Image.Image:
 def save_image(image: Image.Image) -> str:
     image_hash = hashlib.md5(image.tobytes()).hexdigest()
     img_out_name = image_hash + ".jpg"
-    image.save(DATA_PATH / img_out_name)
-    return HOST + IMAGE_PATH + "/" + img_out_name
+    image.save(settings.storage_path / img_out_name)
+    return settings.image_path + "/" + img_out_name

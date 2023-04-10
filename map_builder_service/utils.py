@@ -1,8 +1,7 @@
 import warnings
-from typing import Iterable, Sequence, Tuple, Optional
+from typing import Iterable, Optional, Sequence, Tuple
 
 import numpy as np
-import torch
 from PIL import Image, ImageDraw
 from sklearn.cluster import MeanShift
 from sklearn.linear_model import RANSACRegressor
@@ -115,9 +114,9 @@ def interpolate_lines_ransac(
         new_x = ransac.predict(new_Y)
         line = np.stack((new_x, new_y), axis=1)
         line = line[line[:, 0] >= 1]
-        line = line[line[:, 0] < mask.shape[1]-1]
+        line = line[line[:, 0] < mask.shape[1] - 1]
         line = line[line[:, 1] >= 1]
-        line = line[line[:, 1] < mask.shape[0]-1]
+        line = line[line[:, 1] < mask.shape[0] - 1]
         if min_x:
             line = line[line[:, 0] >= min_x]
         if max_x:
@@ -127,5 +126,4 @@ def interpolate_lines_ransac(
         if max_y:
             line = line[line[:, 1] <= max_y]
         lines.append(line)
-        print(line)
     return lines

@@ -11,6 +11,27 @@ from tqdm.auto import tqdm
 logger = logging.getLogger(__name__)
 
 
+def _extract_zip(
+    zip_file_path: Union[str, Path], out_dir: Union[str, Path], verbose: bool = True
+):
+    out_dir = Path(out_dir)
+    with ZipFile(zip_file_path) as zfile:
+        if verbose:
+            logger.info(f"Unzip {zip_file_path}...")
+        out_dir.mkdir(parents=True, exist_ok=True)
+        if verbose:
+            uncompress_size = sum((f.file_size for f in zfile.infolist()))
+            pbar = tqdm(
+                total=uncompress_size, unit="B", unit_scale=True, dynamic_ncols=True
+            )
+            for f in zfile.infolist():
+                zfile.extract(member=f, path=out_dir)
+                pbar.update(f.file_size)
+            pbar.close()
+        else:
+            zfile.extractall(out_dir)
+
+
 def preprocess_tusimple(
     path: Union[str, Path],
     out_dir: Union[str, Path],
@@ -23,39 +44,11 @@ def preprocess_tusimple(
     test_set = path / "test_set.zip"
     test_label_file = path / "test_label.json"
 
-    with ZipFile(train_set) as zfile:
-        if verbose:
-            logger.info(f"Unzip train {train_set}...")
-        train_out_path = out_dir / "train" / "TuSimple"
-        train_out_path.mkdir(parents=True, exist_ok=True)
-        if verbose:
-            uncompress_size = sum((f.file_size for f in zfile.infolist()))
-            pbar = tqdm(
-                total=uncompress_size, unit="B", unit_scale=True, dynamic_ncols=True
-            )
-            for f in zfile.infolist():
-                zfile.extract(member=f, path=train_out_path)
-                pbar.update(f.file_size)
-            pbar.close()
-        else:
-            zfile.extractall(train_out_path)
+    train_out_path = out_dir / "train" / "TuSimple"
+    _extract_zip(train_set, train_out_path, verbose=verbose)
 
-    with ZipFile(test_set) as zfile:
-        if verbose:
-            logger.info(f"Unzip test {test_set}...")
-        test_out_path = out_dir / "test" / "TuSimple"
-        test_out_path.mkdir(parents=True, exist_ok=True)
-        if verbose:
-            uncompress_size = sum((f.file_size for f in zfile.infolist()))
-            pbar = tqdm(
-                total=uncompress_size, unit="B", unit_scale=True, dynamic_ncols=True
-            )
-            for f in zfile.infolist():
-                zfile.extract(member=f, path=test_out_path)
-                pbar.update(f.file_size)
-            pbar.close()
-        else:
-            zfile.extractall(test_out_path)
+    test_out_path = out_dir / "test" / "TuSimple"
+    _extract_zip(test_set, test_out_path, verbose=verbose)
 
     test_labels = []
     with open(test_label_file, "r") as stream:

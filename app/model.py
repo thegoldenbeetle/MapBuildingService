@@ -10,6 +10,8 @@ from torchvision import transforms
 from map_builder_service.lanenet import LaneNet
 from map_builder_service.utils import interpolate_lines_ransac
 
+from .config import settings
+
 
 @dataclass
 class PredictResult:
@@ -35,14 +37,16 @@ class DetectionModel:
             device = torch.device("cuda")
         else:
             device = torch.device("cpu")
-        model = LaneNet.load_from_checkpoint("data/model.ckpt")
+        model = LaneNet.load_from_checkpoint(settings.checkpoint)
         model.to(device)
         model.eval()
         return model
 
     @torch.no_grad()
     def detect_line(self, img: Image.Image) -> PredictResult:
-        line_mask = self.model.lines_segmentation(self.transform(img).unsqueeze(0))[0]
+        line_mask = self.model.lines_segmentation(
+            self.transform(img).unsqueeze(0).to(self.model.device)
+        )[0]
         mask = cv2.resize(
             line_mask,
             img.size,

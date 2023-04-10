@@ -6,16 +6,14 @@ import torchmetrics
 from PIL import Image
 from torch import nn, optim
 from torchvision import transforms
-from torchvision.models import VGG16_BN_Weights, vgg16_bn
 from torchvision.models.segmentation import (
     DeepLabV3_MobileNet_V3_Large_Weights,
     deeplabv3_mobilenet_v3_large,
 )
 from torchvision.utils import draw_segmentation_masks
 
-from .losses import LaneNetEmbedingLoss
 from .metrics import CULaneMetric
-from .utils import interpolate_lines, lanelet_clustering, lane_ransac_clustering
+from .utils import interpolate_lines, lane_ransac_clustering
 
 
 class SegModel(L.LightningModule):
@@ -232,9 +230,7 @@ class SegModel(L.LightningModule):
         self.log("test/seg_f1", self.test_f1)
 
         # Line metrics
-        for bin_seg, lines, image_file in zip(
-            pred_bin_seg, gt_lines, images
-        ):
+        for bin_seg, lines, image_file in zip(pred_bin_seg, gt_lines, images):
             pred_seg = lane_ransac_clustering(
                 bin_seg.cpu().numpy() >= 0.5,
             )
