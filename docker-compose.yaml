@@ -1,9 +1,12 @@
 version: "3.7"
 services:
   workspace:
-    build: .
+    build:
+      context: "."
+      args:
+        - "UID=${DOCKER_UID:-1000}"
+        - "GID=${DOCKER_GID:-1000}"
     image: map_builder_service:latest
-    user: "${DOCKER_UID}:${DOCKER_GID}"
     deploy:
       resources:
         reservations:

@@ -1,5 +1,8 @@
 FROM nvidia/cuda:11.8.0-devel-ubuntu22.04
 
+ARG UID=1000
+ARG GID=1000
+
 RUN apt-get update && apt-get upgrade -y &&\
     # Install build tools, build dependencies and python
     apt-get install -y \
@@ -13,8 +16,16 @@ RUN apt-get update && apt-get upgrade -y &&\
         python3-venv \
     && rm -rf /var/lib/apt/lists/*
 
+
+RUN groupadd -g "${GID}" workuser\
+    && useradd --create-home --no-log-init -u "${UID}" -g "${GID}" workuser
+
+USER workuser
+
+ENV PATH "$PATH:/home/workuser/.local/bin"
+
+COPY . /source
 WORKDIR /source
-COPY pyproject.toml .
-RUN python3 -m pip install -U pip wheel pip-tools
-RUN pip-compile --extra dev --resolver=backtracking -o requirements.txt pyproject.toml
-RUN python3 -m pip install -r requirements.txt
+RUN python3 -m pip install -U pip wheel
+RUN python3 -m pip install -e .
+

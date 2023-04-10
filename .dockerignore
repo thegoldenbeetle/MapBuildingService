@@ -1,5 +1,7 @@
 /data/**
-/.dvc/**
+/.dvc/cache
+/.dvc/tmp
 /logs/**
+/results/**
 /.git/**
 /.direnv/**
