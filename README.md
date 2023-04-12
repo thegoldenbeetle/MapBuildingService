@@ -9,6 +9,33 @@
 - Сервис для проецирования 2d линий на изображений в 3d пространство
 - Сервис для построения карты по набору 3d линий
 
+## Запуск сервиса
+
+Установить отркужение.
+
+``` shell
+# Локально
+> python -m pip install -e .
+# Docker
+> docker-compose run workspace
+```
+
+Получить даные из хранилища DVC:
+
+``` shell
+# Ключи от S3 хранилища
+> export AWS_ACCESS_KEY_ID='00421c5bdbab80c0000000004'
+> export AWS_SECRET_ACCESS_KEY='K004Px28gjnnw9wANF7AXpKpiNJ/iF0'
+# Получение весов модели
+> dvc pull data/model.ckpt
+```
+
+Запуск сервиса:
+
+``` shell
+make run
+```
+
 ## Architecture draft
 
 ![](doc/resources/service.png)
