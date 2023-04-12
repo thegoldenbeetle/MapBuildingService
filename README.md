@@ -11,12 +11,15 @@
 
 ## Запуск сервиса
 
-Установить отркужение.
+Установить окружение:
 
 ``` shell
 # Локально
 > python -m pip install -e .
+
 # Docker
+> export DOCKER_UID=1000
+> export DOCKER_GID=1000
 > docker-compose run workspace
 ```
 
@@ -107,19 +110,17 @@ make run
 
 ## Результаты
 
-### LaneNet
-
 **TuSimple:**
 
-| Test metric                    | Value |
-|:-------------------------------:|:-----:|
-| TP (CuLane metric)              | 7173  |
-| FP (CuLane metric)              | 3195  |
-| FN (CuLane metric)              | 2771  |
-| Precision (CuLane metric)       | 0.692 |
-| Recall (CuLane metric)          | 0.721 |
-| F1 (CuLane metric)              | 0.706 |
-| Accuracy (Binary segmentation) | 0.944|
-| Precision (Binary segmentation) | 0.620|
-| Recall (Binary segmentation)    | 0.454|
-| F1 (Binary segmentation)        | 0.979|
+| Test metric                     | LaneNet | UNet  |
+|:-------------------------------:|:-------:|-------|
+| TP (CuLane metric)              | 7173    | 5323  |
+| FP (CuLane metric)              | 3195    | 4295  |
+| FN (CuLane metric)              | 2771    | 3521  |
+| Precision (CuLane metric)       | 0.692   | 0.553 |
+| Recall (CuLane metric)          | 0.721   | 0.602 |
+| F1 (CuLane metric)              | 0.706   | 0.577 |
+| Accuracy (Binary segmentation)  | 0.944   | 0.921 |
+| Precision (Binary segmentation) | 0.620   | 0.442 |
+| Recall (Binary segmentation)    | 0.454   | 0.312 |
+| F1 (Binary segmentation)        | 0.979   | 0.814 |

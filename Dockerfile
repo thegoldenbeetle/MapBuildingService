@@ -24,7 +24,7 @@ USER workuser
 
 ENV PATH "$PATH:/home/workuser/.local/bin"
 
-COPY . /source
+COPY --chown=workuser:workuser . /source
 WORKDIR /source
 RUN python3 -m pip install -U pip wheel
 RUN python3 -m pip install -e .
